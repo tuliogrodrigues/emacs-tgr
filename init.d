@@ -91,7 +91,7 @@
     ("84d2f9eeb3f82d619ca4bfffe5f157282f4779732f48a5ac1484d94d5ff5b279" default)))
  '(package-selected-packages
    (quote
-    (helm-c-yasnippet sbt-mode scalariform scala-mode company-lsp lsp-ui flycheck helm-projectile helm projectile use-package))))
+    (cider clojure-mode better-defaults undo-tree magit helm-c-yasnippet sbt-mode scalariform scala-mode company-lsp lsp-ui flycheck helm-projectile helm projectile use-package))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -118,8 +118,16 @@
 (setq org-todo-keywords
       '((sequence "TODO(t)" "|" "IN_PROGRESS(w)" "ON_HOLD(h)" "|" "DONE(d)")))
 
+(use-package undo-tree
+  :diminish undo-tree-mode
+  :config
+  (global-undo-tree-mode t))
+
 (use-package magit
-  :bind (("C-M-g" . magit-status)))
+  :bind (("C-x g s" . magit-status)
+         ("C-x g f" . magit-fetch)
+         ("C-x g p" . magit-push)
+         ("C-x g b" . magit-branch)))
 
 (use-package projectile
   :ensure t
@@ -158,12 +166,35 @@
   :config
   (helm-projectile-on))
 
-
-
 (require 'yasnippet)
 
 (use-package scala-mode
   :mode "\\.s\\(cala\\|bt\\)$")
+
+;; Clojure Mode
+(use-package better-defaults
+  :ensure t)
+(use-package clojure-mode
+  :ensure t
+  :mode (("\\.clj\\'" . clojure-mode)
+         ("\\.edn\\'" . clojure-mode))
+  :init
+  (add-hook 'clojure-mode-hook #'yas-minor-mode)
+  (add-hook 'clojure-mode-hook #'linum-mode)
+  (add-hook 'clojure-mode-hook #'subword-mode)
+  (add-hook 'clojure-mode-hook #'smartparens-mode)
+  (add-hook 'clojure-mode-hook #'rainbow-delimiters-mode)
+  (add-hook 'clojure-mode-hook #'eldoc-mode)
+  (add-hook 'clojure-mode-hook #'idle-highlight-mode))
+
+(use-package cider
+  :ensure t
+  :defer t
+  :init (add-hook 'cider-mode-hook #'clj-refactor-mode)
+  :diminish subword-mode
+  )
+
+;; Scala Mode
 
 (use-package sbt-mode
   :commands sbt-start sbt-command
@@ -189,6 +220,12 @@
 (add-hook 'lsp-mode-hook 'lsp-ui-mode)
 
 (use-package company-lsp)
+
+(use-package lsp-mode
+  :hook (XXX-mode . lsp)
+  :commands lsp)
+
+(use-package lsp-treemacs :commands lsp-treemacs-errors-list)
 
 (provide 'init)
 ;;; init.el ends here
