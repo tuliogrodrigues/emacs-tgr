@@ -1,3 +1,12 @@
+;;; init.el --- Tulio's emacs configuration
+
+;;; Commentary:
+
+;; This is a simple Emacs configuration for working with Clojure
+
+;;; Code:
+
+;; Set threshold
 (setq gc-cons-threshold 50000000)
 (setq large-file-warning-threshold 100000000)
 
@@ -8,13 +17,20 @@
 (set-terminal-coding-system 'utf-8)
 (set-keyboard-coding-system 'utf-8)
 
-
 ;;Package Manager
+
+(setq url-proxy-services
+   '(("no_proxy" . "^\\(localhost\\|10\\..*\\|192\\.168\\..*\\)")
+     ("http" . "proxy.r-services.at:57165")
+     ("https" . "proxy.r-services.at:57165")))
+
+(setq package-check-signature nil)
 
 (require 'package)
 (setq package-enable-at-startup nil)
-(add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/"))
-(add-to-list 'package-archives '("gnu" . "http://elpa.gnu.org/packages/"))
+
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(add-to-list 'package-archives '("gnu" . "https://elpa.gnu.org/packages/") t)
 (add-to-list 'package-archives '("org" . "https://orgmode.org/elpa/") t)
 
 (package-initialize)
@@ -42,12 +58,27 @@
 (global-display-line-numbers-mode 1)
 (column-number-mode t)
 (size-indication-mode t)
-
-(setq inhibit-startup-screen t)
-
+(display-time-mode 1)
 (fset 'yes-or-no-p 'y-or-n-p)
 (global-auto-revert-mode t)
+
+(setq inhibit-startup-screen t)
+(org-agenda-list)
+(delete-other-windows)
+
 (add-hook 'before-save-hook 'whitespace-cleanup)
+;(add-hook 'after-init-hook 'org-agenda-list)
+
+(add-to-list 'default-frame-alist '(font . "Fira Code 10"))
+
+(use-package dashboard
+  :ensure t
+  :config
+  (dashboard-setup-startup-hook)
+  (setq dashboard-startup-banner "~/.emacs.d/img/avatar.png")
+  (setq dashboard-banner-logo-title "Let's make Emacs great again!")
+  (setq dashboard-items '((projects . 5)
+                          (agenda . 5))))
 
 (use-package smartparens
   :ensure t
@@ -81,25 +112,6 @@
   (setq sml/theme 'powerline)
   (add-hook 'after-init-hook 'sml/setup))
 
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(custom-safe-themes
-   (quote
-    ("84d2f9eeb3f82d619ca4bfffe5f157282f4779732f48a5ac1484d94d5ff5b279" default)))
- '(package-selected-packages
-   (quote
-    (cider clojure-mode better-defaults undo-tree magit helm-c-yasnippet sbt-mode scalariform scala-mode company-lsp lsp-ui flycheck helm-projectile helm projectile use-package))))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
-
-
 ;; Backups
 
 (setq backup-directory-alist
@@ -107,16 +119,41 @@
 (setq auto-save-file-name-transforms
       `((".*" ,temporary-file-directory t)))
 
+;; Shortkeys
+
+(define-key key-translation-map [dead-diaeresis]
+  (lookup-key key-translation-map "\C-x8\""))
+(define-key isearch-mode-map [dead-diaeresis] nil)
+(global-set-key (kbd "M-u")
+                (lookup-key key-translation-map "\C-x8\""))
 
 ;; Workstation for development
 
 (use-package org
   :ensure t
-  :bind
-  ("C-c o a" . org-agenda))
+  :bind (
+         ("C-c o a" . org-agenda)
+         ("C-c o l" . org-store-link)))
+
+(add-hook 'org-mode-hook #'org-indent-mode)
+(define-key global-map "\C-cc" 'org-capture)
+
+(setq org-capture-templates nil)
+(setq org-log-done t)
+
+(setq org-todo-keyword-faces
+      '(("TODO" . org-warning)
+        ("BUG" . org-warning)
+        ("IN_PROGRESS" . "yellow")
+        ("ON_HOLD" . "yellow")
+        ("DONE" . "blue")
+        ("FIXED" . "blue")
+        ("ANSWERED" . "blue")))
 
 (setq org-todo-keywords
-      '((sequence "TODO(t)" "|" "IN_PROGRESS(w)" "ON_HOLD(h)" "|" "DONE(d)")))
+      '((sequence "TODO(t)" "|" "IN_PROGRESS(w)" "|" "ON_HOLD(h)" "DONE(d)")
+        (sequence "BUG(b)" "|" "FIXED")
+        (sequence "QUESTION" "|" "ANSWERED")))
 
 (use-package undo-tree
   :diminish undo-tree-mode
@@ -161,6 +198,11 @@
   (define-key helm-map (kbd "C-z")  'helm-select-action) ; list actions using C-z
   )
 
+(use-package ag
+  :ensure t
+  :commands (ag ag-regexp ag-project)
+  :bind ("C-c p a f" . ag-project))
+
 (use-package helm-projectile
   :ensure t
   :config
@@ -168,16 +210,29 @@
 
 (require 'yasnippet)
 
+ (require 'yaml-mode)
+   (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
+
 (use-package scala-mode
   :mode "\\.s\\(cala\\|bt\\)$")
 
 ;; Clojure Mode
 (use-package better-defaults
   :ensure t)
+
+(use-package flycheck
+  :ensure t
+  :diminish flycheck-mode
+  :config
+  (add-hook 'after-init-hook #'global-flycheck-mode))
+
 (use-package clojure-mode
   :ensure t
   :mode (("\\.clj\\'" . clojure-mode)
+         ("\\.cljs\\'" . clojure-mode)
+         ("\\.cljc\\'" . clojure-mode)
          ("\\.edn\\'" . clojure-mode))
+  :config (use-package flycheck-clj-kondo :ensure t)
   :init
   (add-hook 'clojure-mode-hook #'yas-minor-mode)
   (add-hook 'clojure-mode-hook #'linum-mode)
@@ -194,38 +249,84 @@
   :diminish subword-mode
   )
 
-;; Scala Mode
+(defun cljfmt ()
+  (when (or (eq major-mode 'clojure-mode)
+            (eq major-mode 'clojurescript-mode))
+    (shell-command-to-string (format "/opt/clojure/cljfmt.bin %s" buffer-file-name))
+    (revert-buffer :ignore-auto :noconfirm)))
 
-(use-package sbt-mode
-  :commands sbt-start sbt-command
-  :config
-  ;; WORKAROUND: https://github.com/ensime/emacs-sbt-mode/issues/31
-  ;; allows using SPACE when in the minibuffer
-  (substitute-key-definition
-   'minibuffer-complete-word
-   'self-insert-command
-   minibuffer-local-completion-map))
-
-(use-package flycheck
-  :ensure t
-  :diminish flycheck-mode
-  :config
-  (add-hook 'after-init-hook #'global-flycheck-mode))
-
-(use-package lsp-mode
-  :hook (scala-mode . lsp))
-
+(add-hook 'after-save-hook #'cljfmt)
 
 (use-package lsp-ui)
 (add-hook 'lsp-mode-hook 'lsp-ui-mode)
 
 (use-package company-lsp)
+(add-hook 'cider-repl-mode-hook #'company-mode)
+(add-hook 'cider-mode-hook #'company-mode)
+(setq company-idle-delay nil) ; never start completions automatically
+(global-set-key (kbd "C-M-i") #'company-complete)
 
 (use-package lsp-mode
   :hook (XXX-mode . lsp)
   :commands lsp)
 
+(setq cider-show-error-buffer nil)
+(setq cider-auto-select-error-buffer nil)
+
 (use-package lsp-treemacs :commands lsp-treemacs-errors-list)
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(ansi-color-names-vector
+   ["#1e1e1e" "#D16969" "#579C4C" "#D7BA7D" "#339CDB" "#C586C0" "#85DDFF" "#d4d4d4"])
+ '(custom-safe-themes
+   (quote
+    ("1c8171893a9a0ce55cb7706766e57707787962e43330d7b0b6b0754ed5283cda" "d1c7f2db070c96aa674f1d61403b4da1fff2154163e9be76ce51824ed5ca709c" "0736a8e34702a67d84e32e2af90145ed19824f661776a0e966cea62aa1943a6e" "d5f8099d98174116cba9912fe2a0c3196a7cd405d12fa6b9375c55fc510988b5" "e1ef2d5b8091f4953fe17b4ca3dd143d476c106e221d92ded38614266cea3c8b" "2cdc13ef8c76a22daa0f46370011f54e79bae00d5736340a5ddfe656a767fddf" "be9645aaa8c11f76a10bcf36aaf83f54f4587ced1b9b679b55639c87404e2499" "84d2f9eeb3f82d619ca4bfffe5f157282f4779732f48a5ac1484d94d5ff5b279" default)))
+ '(fci-rule-color "#37474F")
+ '(jdee-db-active-breakpoint-face-colors (cons "#171F24" "#237AD3"))
+ '(jdee-db-requested-breakpoint-face-colors (cons "#171F24" "#579C4C"))
+ '(jdee-db-spec-breakpoint-face-colors (cons "#171F24" "#777778"))
+ '(objed-cursor-color "#D16969")
+ '(org-agenda-files
+   (quote
+    ("~/Org/Agenda/application.org" "~/Org/Agenda/lambda-services.org" "~/Org/Agenda/documentation.org")))
+ '(package-selected-packages
+   (quote
+    (dashboard flycheck-plantuml kibit-helper plantuml-mode flycheck-clojure flycheck-clj-kondo yaml-mode docker org cider clojure-mode better-defaults undo-tree magit helm-c-yasnippet company-lsp lsp-ui flycheck helm-projectile helm projectile use-package ag)))
+ '(pdf-view-midnight-colors (cons "#d4d4d4" "#1e1e1e"))
+ '(rustic-ansi-faces
+   ["#1e1e1e" "#D16969" "#579C4C" "#D7BA7D" "#339CDB" "#C586C0" "#85DDFF" "#d4d4d4"])
+ '(vc-annotate-background "#1e1e1e")
+ '(vc-annotate-color-map
+   (list
+    (cons 20 "#579C4C")
+    (cons 40 "#81a65c")
+    (cons 60 "#acb06c")
+    (cons 80 "#D7BA7D")
+    (cons 100 "#d8ab79")
+    (cons 120 "#d99c76")
+    (cons 140 "#DB8E73")
+    (cons 160 "#d38b8c")
+    (cons 180 "#cc88a6")
+    (cons 200 "#C586C0")
+    (cons 220 "#c97ca3")
+    (cons 240 "#cd7286")
+    (cons 260 "#D16969")
+    (cons 280 "#ba6c6c")
+    (cons 300 "#a37070")
+    (cons 320 "#8d7374")
+    (cons 340 "#37474F")
+    (cons 360 "#37474F")))
+ '(vc-annotate-very-old-color nil))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
 
 (provide 'init)
 ;;; init.el ends here
